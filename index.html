@@ -91,7 +91,11 @@
   .sheet{background:var(--bg);width:100%;max-width:560px;max-height:92vh;overflow-y:auto;border-radius:22px 22px 0 0;padding:10px 18px calc(24px + env(safe-area-inset-bottom));animation:up .22s ease}
   @media(min-width:700px){.overlay{align-items:center}.sheet{border-radius:22px}}
   @keyframes up{from{transform:translateY(40px);opacity:.4}to{transform:none;opacity:1}}
-  .grab{width:40px;height:5px;border-radius:9px;background:var(--line);margin:0 auto 12px}
+  .grab{width:40px;height:5px;border-radius:9px;background:#D9D2C8;margin:0 auto 4px}
+  .sheet-top{position:sticky;top:-10px;z-index:2;background:var(--bg);margin:-10px -18px 8px;padding:10px 12px 6px;display:flex;flex-direction:column;touch-action:none}
+  .sheet-top .x{align-self:flex-end;width:36px;height:36px;border-radius:50%;border:0;background:var(--line);font-size:22px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--ink);margin-top:-6px}
+  .sheet.dragging{transition:none}
+  .sheet.snap{transition:transform .2s ease}
   .sheet h2{font-family:Fraunces,Georgia,serif;font-size:22px;margin:4px 0 14px}
   .sheet h3{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:22px 0 10px}
   .d-img{border-radius:16px;overflow:hidden;background:#fff;border:1px solid var(--line);margin-bottom:14px}
@@ -349,9 +353,53 @@ function render(){
 }
 
 /* ---------- Sheets ---------- */
-function openSheet(html){ $("sheet").innerHTML = `<div class="grab"></div>` + html; $("overlay").classList.add("open"); $("sheet").scrollTop=0; }
-function closeSheet(){ $("overlay").classList.remove("open"); }
+let sheetHist = false;
+function openSheet(html){
+  const sh = $("sheet");
+  sh.innerHTML = `<div class="sheet-top" id="sheetTop"><div class="grab"></div><button class="x" id="sheetX" aria-label="Close">&times;</button></div>` + html;
+  sh.style.transform = "";
+  if(!$("overlay").classList.contains("open")){
+    $("overlay").classList.add("open");
+    try{ history.pushState({sheet:1},""); sheetHist = true; }catch(e){ sheetHist = false; }
+  }
+  sh.scrollTop = 0;
+  $("sheetX").onclick = closeSheet;
+}
+function hideSheet(){ $("overlay").classList.remove("open"); $("sheet").style.transform=""; }
+function closeSheet(){
+  if(!$("overlay").classList.contains("open")) return;
+  hideSheet();
+  if(sheetHist){ sheetHist = false; try{ history.back(); }catch(e){} }
+}
+window.addEventListener("popstate", ()=>{ if($("overlay").classList.contains("open")){ sheetHist = false; hideSheet(); } });
+document.addEventListener("keydown", e=>{ if(e.key==="Escape") closeSheet(); });
 $("overlay").addEventListener("click", e=>{ if(e.target.id==="overlay") closeSheet(); });
+
+/* Swipe down to close (from the top bar, or anywhere when scrolled to the top) */
+(function(){
+  const sh = $("sheet"); let y0=null, dy=0, fromTop=false;
+  sh.addEventListener("touchstart", e=>{
+    fromTop = !!e.target.closest("#sheetTop");
+    if(!fromTop && sh.scrollTop > 0){ y0=null; return; }
+    if(e.target.closest("input,textarea,select")){ y0=null; return; }
+    y0 = e.touches[0].clientY; dy = 0; sh.classList.remove("snap");
+  }, {passive:true});
+  sh.addEventListener("touchmove", e=>{
+    if(y0===null) return;
+    dy = e.touches[0].clientY - y0;
+    if(dy <= 0 || (!fromTop && sh.scrollTop > 0)){ sh.style.transform=""; return; }
+    if(e.cancelable) e.preventDefault();
+    sh.classList.add("dragging");
+    sh.style.transform = `translateY(${dy}px)`;
+  }, {passive:false});
+  sh.addEventListener("touchend", ()=>{
+    if(y0===null) return;
+    sh.classList.remove("dragging"); sh.classList.add("snap");
+    if(dy > 90){ sh.style.transform = "translateY(100%)"; setTimeout(()=>{ closeSheet(); sh.classList.remove("snap"); }, 180); }
+    else sh.style.transform = "";
+    y0 = null; dy = 0;
+  });
+})();
 
 function openDetail(id){
   const g = gifts.find(x=>x.id===id); if(!g) return;

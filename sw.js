@@ -1,5 +1,5 @@
 // Keeps the app working offline. Bump VERSION when app files change.
-const VERSION = "gifts-v1";
+const VERSION = "gifts-v2";
 const SHELL = [
   "./", "./index.html", "./manifest.webmanifest",
   "./icons/icon-192.png", "./icons/icon-512.png", "./icons/apple-touch-icon.png"
